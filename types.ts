@@ -4,9 +4,19 @@ export type FateStressTrack = {
   name: string;
   count: number;
   values: boolean[];
+  canDelete: boolean;
 };
 
 export type FateAspect = string;
+export type FateTempAspect = {
+  name: string;
+  invokes: number;
+};
+
+export type FateSkillRow = {
+  bonus: number;
+  list: string[];
+};
 
 export type FateCharacter = {
   id: string;
@@ -17,12 +27,12 @@ export type FateCharacter = {
   image: string;
   extras: string;
   aspects: FateAspect[];
+  tempAspects: FateTempAspect[];
   stunts: string[];
   consequences: { label: string; value: number; text: string }[];
-  skills: Record<string, string[]>; // e.g., { "+4": ["Athletics"], "+3": ["Notice", "Will"] }
+  skills: FateSkillRow[];
   stress: FateStressTrack[];
   isNPC: boolean;
-  isGMMain?: boolean;
 };
 
 export type ChatMessage = {
@@ -35,7 +45,6 @@ export type ChatMessage = {
     dice: number[];
     modifier: number;
     total: number;
-    skillName?: string;
   };
 };
 
@@ -46,6 +55,7 @@ export type RoomState = {
   inviteCode: string;
   myRole: Role;
   myName: string;
-  characters: FateCharacter[]; // All characters owned by this session
+  players: FateCharacter[];
+  npcs: FateCharacter[];
   messages: ChatMessage[];
 };

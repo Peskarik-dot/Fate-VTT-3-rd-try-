@@ -1,255 +1,324 @@
 
-import React, { useState, useEffect } from 'react';
-import { RoomState, FateCharacter, ChatMessage } from './types';
-import { createDefaultCharacter } from './constants';
+import React, { useState, useEffect, useCallback } from 'react';
+import { RoomState, FateCharacter, ChatMessage, Role } from './types';
+import { INITIAL_CHARACTER, COLORS } from './constants';
 import { CharacterSheet } from './components/CharacterSheet';
 import { Chat } from './components/Chat';
-// Fixed: Added Dice5 to the lucide-react imports
-import { Shield, User, LogOut, PlusCircle, Trash2, Users, Dice5 } from 'lucide-react';
+import { Shield, User, LogOut, ChevronRight, PlusCircle, Settings, Users, Trash2 } from 'lucide-react';
 
-const LOCAL_STORAGE_KEY = 'fate_table_data_v2';
+const LOCAL_STORAGE_KEY = 'fate_tabletop_save_v1';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'LOGIN' | 'TABLE'>('LOGIN');
   const [room, setRoom] = useState<RoomState | null>(null);
-  const [activeTab, setActiveTab] = useState<'MY_SHEET' | 'NPC_TOOLS' | 'MEMBERS'>('MY_SHEET');
+  const [activeTab, setActiveTab] = useState<'MY_SHEET' | 'GM_TOOLS' | 'DASHBOARD'>('MY_SHEET');
   
-  // Persist State
+  // Persist State Load
   useEffect(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setRoom(parsed);
-        setView('TABLE');
-      } catch (e) { console.error("Save load failed", e); }
+        if (parsed && parsed.roomName) {
+          setRoom(parsed);
+          setView('TABLE');
+        }
+      } catch (e) {
+        console.error("Failed to load save", e);
+      }
     }
   }, []);
 
+  // Persist State Save
   useEffect(() => {
-    if (room) localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(room));
+    if (room) {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(room));
+    }
   }, [room]);
 
-  const handleCreateRoom = (roomName: string) => {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const gmMain = createDefaultCharacter('gm_main', 'Гейм-мастер', false);
-    gmMain.isGMMain = true;
-    
-    setRoom({
+  const handleCreateRoom = useCallback((roomName: string) => {
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const initialState: RoomState = {
       roomName,
-      inviteCode: code,
+      inviteCode,
       myRole: 'GM',
       myName: 'Master',
-      characters: [gmMain],
-      messages: [{ id: '1', sender: 'System', text: `Стол "${roomName}" развернут. Код: ${code}`, timestamp: Date.now(), type: 'message' }]
-    });
+      players: [],
+      npcs: [{ ...INITIAL_CHARACTER, id: 'npc_1', name: 'Безымянный NPC', isNPC: true }],
+      messages: [{ id: '1', sender: 'System', text: `Комната "${roomName}" создана. Код: ${inviteCode}`, timestamp: Date.now(), type: 'message' }]
+    };
+    setRoom(initialState);
     setView('TABLE');
-  };
+    setActiveTab('GM_TOOLS');
+  }, []);
 
-  const handleJoinRoom = (name: string, code: string) => {
-    const playerChar = createDefaultCharacter('player_self', name, false);
-    setRoom({
-      roomName: 'Игровой стол',
+  const handleJoinRoom = useCallback((name: string, code: string) => {
+    const initialState: RoomState = {
+      roomName: 'Игровая комната',
       inviteCode: code,
       myRole: 'PLAYER',
       myName: name,
-      characters: [playerChar],
-      messages: [{ id: '1', sender: 'System', text: `${name} за столом.`, timestamp: Date.now(), type: 'message' }]
-    });
+      players: [{ ...INITIAL_CHARACTER, id: 'player_me', name: name }],
+      npcs: [],
+      messages: [{ id: '1', sender: 'System', text: `${name} присоединился к игре.`, timestamp: Date.now(), type: 'message' }]
+    };
+    setRoom(initialState);
     setView('TABLE');
-  };
+    setActiveTab('MY_SHEET');
+  }, []);
 
-  const onSendMessage = (text: string) => {
-    if (!room) return;
-    setRoom({ ...room, messages: [...room.messages, { id: Date.now().toString(), sender: room.myName, text, timestamp: Date.now(), type: 'message' }] });
-  };
+  const handleSendMessage = useCallback((text: string) => {
+    setRoom(prev => {
+      if (!prev) return null;
+      const newMessage: ChatMessage = {
+        id: Date.now().toString(),
+        sender: prev.myName,
+        text,
+        timestamp: Date.now(),
+        type: 'message'
+      };
+      return { ...prev, messages: [...prev.messages, newMessage] };
+    });
+  }, []);
 
-  const onRoll = (modifier: number, skillName?: string) => {
-    if (!room) return;
-    const dice = Array.from({ length: 4 }).map(() => Math.floor(Math.random() * 3) - 1);
-    const total = dice.reduce((a, b) => a + b, 0) + modifier;
-    setRoom({ ...room, messages: [...room.messages, { id: Date.now().toString(), sender: room.myName, text: '', timestamp: Date.now(), type: 'roll', rollData: { dice, modifier, total, skillName } }] });
-  };
+  const handleRoll = useCallback((modifier: number) => {
+    setRoom(prev => {
+      if (!prev) return null;
+      const dice = Array.from({ length: 4 }).map(() => Math.floor(Math.random() * 3) - 1);
+      const sum = dice.reduce((a, b) => a + b, 0);
+      const total = sum + modifier;
 
-  const updateCharacter = (id: string, updated: FateCharacter) => {
-    if (!room) return;
-    setRoom({ ...room, characters: room.characters.map(c => c.id === id ? updated : c) });
-  };
+      const newMessage: ChatMessage = {
+        id: Date.now().toString(),
+        sender: prev.myName,
+        text: `бросил 4df`,
+        timestamp: Date.now(),
+        type: 'roll',
+        rollData: { dice, modifier, total }
+      };
+      return { ...prev, messages: [...prev.messages, newMessage] };
+    });
+  }, []);
 
-  const addNPC = () => {
-    if (!room) return;
-    const npc = createDefaultCharacter(`npc_${Date.now()}`, 'Новый NPC', true);
-    setRoom({ ...room, characters: [...room.characters, npc] });
-  };
+  const updateCharacter = useCallback((id: string, updated: FateCharacter) => {
+    setRoom(prev => {
+      if (!prev) return null;
+      if (prev.myRole === 'PLAYER') {
+        const players = prev.players.map(p => p.id === id ? updated : p);
+        return { ...prev, players };
+      } else {
+        const npcs = prev.npcs.map(n => n.id === id ? updated : n);
+        return { ...prev, npcs };
+      }
+    });
+  }, []);
 
-  const deleteNPC = (id: string) => {
-    if (!room) return;
-    setRoom({ ...room, characters: room.characters.filter(c => c.id !== id) });
-  };
+  const handleLogout = useCallback((e?: React.MouseEvent) => {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    if (window.confirm("Вы точно хотите выйти? Прогресс останется сохраненным локально, но вы вернетесь в меню.")) {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      setRoom(null);
+      setView('LOGIN');
+      setActiveTab('MY_SHEET');
+    }
+  }, []);
 
-  if (view === 'LOGIN') return <LoginView onCreate={handleCreateRoom} onJoin={handleJoinRoom} />;
-
-  const myMainSheet = room?.characters.find(c => c.id === (room.myRole === 'GM' ? 'gm_main' : 'player_self'));
-  const npcs = room?.characters.filter(c => c.isNPC) || [];
+  if (view === 'LOGIN') {
+    return <LoginView onCreate={handleCreateRoom} onJoin={handleJoinRoom} />;
+  }
 
   return (
-    <div className="flex h-screen w-screen bg-[#0f1115] text-[#e6e9ef] overflow-hidden font-sans selection:bg-[#4aa3ff]/30">
+    <div className="flex h-screen w-screen bg-[#15171b] text-[#e6e9ef] overflow-hidden">
+      {/* Main Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-20 border-b border-[#3a4a63] bg-[#15171b] flex items-center justify-between px-8 shrink-0 z-10 shadow-lg">
-          <div className="flex items-center gap-6">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black text-[#4aa3ff] uppercase tracking-[0.2em]">{room?.myRole === 'GM' ? 'МАСТЕР-ПАНЕЛЬ' : 'СТОЛ ИГРОКА'}</span>
-              <h1 className="font-black text-2xl tracking-tight leading-none">{room?.roomName}</h1>
-            </div>
-            <div className="px-4 py-1.5 bg-[#1e2128] border border-[#3a4a63] rounded-full text-xs font-black text-[#9aa4b2] flex items-center gap-2">
-              <span className="opacity-50 tracking-widest">КОД:</span> {room?.inviteCode}
+        <header className="h-16 border-b border-[#3a4a63] bg-[#1b1d21] flex items-center justify-between px-6 shrink-0 shadow-xl relative z-50">
+          <div className="flex items-center gap-4">
+            <h1 className="font-black text-xl text-[#4aa3ff] tracking-tight">{room?.roomName}</h1>
+            <div className="px-3 py-1 bg-[#24272d] border border-[#3a4a63] rounded-full text-xs font-bold text-[#9aa4b2]">
+              КОД: {room?.inviteCode}
             </div>
           </div>
           
-          <nav className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <button 
               onClick={() => setActiveTab('MY_SHEET')} 
-              className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'MY_SHEET' ? 'bg-[#4aa3ff] text-white shadow-lg shadow-[#4aa3ff]/20' : 'text-[#9aa4b2] hover:bg-[#1e2128]'}`}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'MY_SHEET' ? 'bg-[#4aa3ff] text-white' : 'hover:bg-[#3a4a63]'}`}
             >
-              <User size={14}/> {room?.myRole === 'GM' ? 'Мой Лист' : 'Лист'}
+              <User size={16}/> {room?.myRole === 'GM' ? 'Мастер-лист' : 'Мой персонаж'}
             </button>
             {room?.myRole === 'GM' && (
               <button 
-                onClick={() => setActiveTab('NPC_TOOLS')} 
-                className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'NPC_TOOLS' ? 'bg-[#4aa3ff] text-white shadow-lg shadow-[#4aa3ff]/20' : 'text-[#9aa4b2] hover:bg-[#1e2128]'}`}
+                onClick={() => setActiveTab('GM_TOOLS')} 
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'GM_TOOLS' ? 'bg-[#4aa3ff] text-white' : 'hover:bg-[#3a4a63]'}`}
               >
-                <Shield size={14}/> NPC & Мир
+                <Shield size={16}/> NPC & Мир
               </button>
             )}
+            <div className="w-px h-6 bg-[#3a4a63] mx-2"></div>
             <button 
-              onClick={() => { if(confirm("Выйти? Все данные хранятся локально.")) { localStorage.removeItem(LOCAL_STORAGE_KEY); setView('LOGIN'); } }}
-              className="p-3 text-red-400 hover:bg-red-400/10 rounded-2xl transition-all"
+              type="button"
+              onClick={handleLogout} 
+              className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-all flex items-center gap-2 font-bold cursor-pointer"
+              title="Выйти"
             >
               <LogOut size={20}/>
             </button>
-          </nav>
+          </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-10 bg-[radial-gradient(circle_at_center,_#15171b_0%,_#0f1115_100%)]">
-          {activeTab === 'MY_SHEET' && myMainSheet && (
-             <CharacterSheet character={myMainSheet} onChange={(u) => updateCharacter(u.id, u)} onRoll={onRoll} />
+        <main className="flex-1 overflow-y-auto p-8 relative z-10">
+          {activeTab === 'MY_SHEET' && room && (
+            <CharacterSheet 
+              character={room.myRole === 'PLAYER' ? room.players[0] : room.npcs[0]} 
+              onChange={(updated) => updateCharacter(updated.id, updated)} 
+              onRoll={handleRoll}
+              isGMView={room.myRole === 'GM'}
+            />
           )}
 
-          {activeTab === 'NPC_TOOLS' && room?.myRole === 'GM' && (
-            <div className="flex flex-col gap-12 max-w-5xl mx-auto w-full">
-              <div className="flex items-center justify-between bg-[#1e2128] p-6 rounded-3xl border border-[#3a4a63]">
-                <div>
-                  <h2 className="text-3xl font-black text-[#e6e9ef] tracking-tight">Библиотека персонажей</h2>
-                  <p className="text-[#9aa4b2] text-sm font-medium">Ваши NPC и сюжетные антагонисты</p>
-                </div>
+          {activeTab === 'GM_TOOLS' && room && (
+            <div className="flex flex-col gap-8 max-w-5xl mx-auto w-full">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-black text-[#4aa3ff]">Список NPC</h2>
                 <button 
-                  onClick={addNPC}
-                  className="bg-[#00e676] hover:bg-[#00c853] text-black px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl shadow-[#00e676]/20"
+                  onClick={() => setRoom(prev => prev ? ({...prev, npcs: [...prev.npcs, { ...INITIAL_CHARACTER, id: `npc_${Date.now()}`, name: 'Новый NPC', isNPC: true }]}) : null)}
+                  className="bg-[#28a745] hover:bg-[#218838] px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all shadow-md shadow-[#28a745]/20"
                 >
-                  <PlusCircle size={18}/> Создать NPC
+                  <PlusCircle size={20}/> Добавить NPC
                 </button>
               </div>
-              
-              <div className="grid grid-cols-1 gap-16">
-                {npcs.map(npc => (
-                  <div key={npc.id} className="relative group">
-                     <button 
-                        onClick={() => deleteNPC(npc.id)}
-                        className="absolute top-4 right-4 z-20 bg-red-500 hover:bg-red-600 text-white p-3 rounded-2xl shadow-xl transition-all scale-0 group-hover:scale-100"
-                      >
-                        <Trash2 size={20}/>
-                      </button>
-                     <CharacterSheet character={npc} onChange={(u) => updateCharacter(u.id, u)} onRoll={onRoll} />
+              <div className="grid grid-cols-1 gap-12 pb-20">
+                {room.npcs.map((npc, idx) => (
+                  <div key={npc.id} className="relative">
+                     <div className="absolute top-4 right-4 z-10">
+                        <button 
+                          onClick={() => setRoom(prev => prev ? ({...prev, npcs: prev.npcs.filter(n => n.id !== npc.id)}) : null)}
+                          className="bg-red-500/20 text-red-400 p-2 rounded-lg hover:bg-red-500 hover:text-white transition-all"
+                        >
+                          <Trash2 size={20}/>
+                        </button>
+                     </div>
+                     <CharacterSheet 
+                        character={npc} 
+                        onChange={(updated) => updateCharacter(updated.id, updated)} 
+                        onRoll={handleRoll}
+                        isGMView={true}
+                      />
                   </div>
                 ))}
-                {npcs.length === 0 && (
-                   <div className="py-20 text-center border-4 border-dashed border-[#3a4a63]/20 rounded-[4rem]">
-                      <Shield size={64} className="mx-auto text-[#3a4a63] opacity-20 mb-4"/>
-                      <p className="text-xl font-black text-[#3a4a63] opacity-30 uppercase tracking-[0.3em]">Список NPC пуст</p>
-                   </div>
-                )}
               </div>
             </div>
           )}
         </main>
       </div>
 
-      <Chat messages={room?.messages || []} onSendMessage={onSendMessage} currentUser={room?.myName || ''} />
+      {/* Sidebar Chat */}
+      <Chat 
+        messages={room?.messages || []} 
+        onSendMessage={handleSendMessage} 
+        currentUser={room?.myName || ''} 
+      />
     </div>
   );
 };
 
-const LoginView: React.FC<{ onCreate: (n: string) => void, onJoin: (n: string, c: string) => void }> = ({ onCreate, onJoin }) => {
+const LoginView: React.FC<{ onCreate: (name: string) => void, onJoin: (name: string, code: string) => void }> = ({ onCreate, onJoin }) => {
   const [mode, setMode] = useState<'CHOICE' | 'CREATE' | 'JOIN'>('CHOICE');
   const [roomName, setRoomName] = useState('');
   const [userName, setUserName] = useState('');
   const [code, setCode] = useState('');
 
-  const inputClass = "w-full bg-[#0f1115] border border-[#3a4a63] rounded-2xl p-5 outline-none focus:border-[#4aa3ff] transition-all text-lg font-medium";
-  const labelClass = "block text-[10px] font-black text-[#9aa4b2] uppercase tracking-[0.2em] mb-3 ml-2";
-
   return (
-    <div className="h-screen w-screen flex items-center justify-center p-6 bg-[#0f1115] overflow-hidden relative">
-      <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-         <div className="grid grid-cols-6 gap-2 rotate-12 -translate-y-1/2">
-            {Array.from({length: 48}).map((_, i) => <Dice5 key={i} size={80} className="text-[#4aa3ff]"/>)}
-         </div>
-      </div>
-
-      <div className="w-full max-w-lg bg-[#1e2128] border border-[#3a4a63] rounded-[3rem] p-12 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8)] flex flex-col gap-10 relative z-10 animate-in zoom-in duration-700">
-        <div className="text-center space-y-2">
-          <h1 className="text-6xl font-black text-[#4aa3ff] tracking-tighter italic">FATE.NET</h1>
-          <div className="h-1 w-24 bg-[#4aa3ff] mx-auto rounded-full"></div>
-          <p className="text-[#9aa4b2] text-sm font-bold uppercase tracking-[0.2em]">Интерактивный игровой стол</p>
+    <div className="h-screen w-screen flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top,_#20242b,_#15171b)]">
+      <div className="w-full max-w-md bg-[#24272d] border border-[#3a4a63] rounded-3xl p-8 shadow-2xl flex flex-col gap-8 animate-in fade-in zoom-in duration-300">
+        <div className="text-center">
+          <h1 className="text-4xl font-black text-[#4aa3ff] mb-2 tracking-tight">FATE TABLE</h1>
+          <p className="text-[#9aa4b2] text-sm font-medium">Интерактивный стол для ваших приключений</p>
         </div>
 
         {mode === 'CHOICE' && (
-          <div className="flex flex-col gap-5">
-            <button onClick={() => setMode('CREATE')} className="group flex items-center justify-between p-8 bg-[#15171b] border border-[#3a4a63] rounded-3xl hover:border-[#4aa3ff] hover:bg-[#1e2128] transition-all text-left shadow-lg">
-              <div>
-                <span className="block text-2xl font-black mb-1">МАСТЕР</span>
-                <span className="text-xs text-[#9aa4b2] font-medium tracking-wide">Создать новую сессию и код комнаты</span>
+          <div className="flex flex-col gap-4">
+            <button 
+              onClick={() => setMode('CREATE')}
+              className="group flex items-center justify-between p-6 bg-[#1b1d21] border border-[#3a4a63] rounded-2xl hover:border-[#4aa3ff] hover:bg-[#1f2228] transition-all"
+            >
+              <div className="text-left">
+                <span className="block text-lg font-bold mb-1">Стать Мастером</span>
+                <span className="text-xs text-[#9aa4b2]">Создать новую комнату и код приглашения</span>
               </div>
-              <Shield className="text-[#4aa3ff] group-hover:scale-125 transition-transform duration-500" size={48}/>
+              <Shield className="text-[#4aa3ff] group-hover:scale-110 transition-transform" size={32}/>
             </button>
-            <button onClick={() => setMode('JOIN')} className="group flex items-center justify-between p-8 bg-[#15171b] border border-[#3a4a63] rounded-3xl hover:border-[#4aa3ff] hover:bg-[#1e2128] transition-all text-left shadow-lg">
-              <div>
-                <span className="block text-2xl font-black mb-1">ИГРОК</span>
-                <span className="text-xs text-[#9aa4b2] font-medium tracking-wide">Войти в существующий мир по коду</span>
+            <button 
+              onClick={() => setMode('JOIN')}
+              className="group flex items-center justify-between p-6 bg-[#1b1d21] border border-[#3a4a63] rounded-2xl hover:border-[#4aa3ff] hover:bg-[#1f2228] transition-all"
+            >
+              <div className="text-left">
+                <span className="block text-lg font-bold mb-1">Присоединиться</span>
+                <span className="text-xs text-[#9aa4b2]">Войти как игрок по коду приглашения</span>
               </div>
-              <Users className="text-[#4aa3ff] group-hover:scale-125 transition-transform duration-500" size={48}/>
+              <Users className="text-[#4aa3ff] group-hover:scale-110 transition-transform" size={32}/>
             </button>
           </div>
         )}
 
         {mode === 'CREATE' && (
-          <div className="space-y-8">
-            <div className="animate-in slide-in-from-right-4 duration-300">
-              <label className={labelClass}>Название кампании</label>
-              <input autoFocus className={inputClass} placeholder="Напр: Хроники Акаши" value={roomName} onChange={(e) => setRoomName(e.target.value)} />
+          <div className="flex flex-col gap-6 animate-in slide-in-from-right duration-300">
+            <div>
+              <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Название комнаты</label>
+              <input 
+                autoFocus
+                className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 focus:outline-none focus:border-[#4aa3ff] transition-all"
+                placeholder="Напр: Хроники Акаши"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+              />
             </div>
             <div className="flex gap-4">
-              <button onClick={() => setMode('CHOICE')} className="flex-1 py-5 text-[#9aa4b2] font-black uppercase tracking-widest text-xs">Назад</button>
-              <button onClick={() => roomName && onCreate(roomName)} className="flex-[2] py-5 bg-[#4aa3ff] text-white rounded-3xl font-black text-sm uppercase tracking-widest shadow-xl shadow-[#4aa3ff]/20 hover:scale-[1.02] active:scale-95 transition-all">Запустить</button>
+              <button onClick={() => setMode('CHOICE')} className="flex-1 py-4 text-[#9aa4b2] font-bold hover:text-white transition-colors">Назад</button>
+              <button 
+                onClick={() => roomName && onCreate(roomName)}
+                className="flex-[2] py-4 bg-[#4aa3ff] text-white rounded-xl font-bold shadow-lg shadow-[#4aa3ff]/20 hover:brightness-110 transition-all active:scale-95"
+              >
+                Создать
+              </button>
             </div>
           </div>
         )}
 
         {mode === 'JOIN' && (
-          <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
-            <div className="space-y-6">
+          <div className="flex flex-col gap-6 animate-in slide-in-from-right duration-300">
+            <div className="space-y-4">
               <div>
-                <label className={labelClass}>Ваше имя</label>
-                <input autoFocus className={inputClass} placeholder="Напр: Арагорн" value={userName} onChange={(e) => setUserName(e.target.value)} />
+                <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Ваше имя</label>
+                <input 
+                  autoFocus
+                  className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 focus:outline-none focus:border-[#4aa3ff] transition-all"
+                  placeholder="Напр: Арагорн"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                />
               </div>
               <div>
-                <label className={labelClass}>Код приглашения</label>
-                <input className={`${inputClass} font-mono tracking-[0.5em] text-center uppercase`} placeholder="XXXXXX" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={6} />
+                <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Код приглашения</label>
+                <input 
+                  className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 font-mono text-center tracking-widest uppercase focus:outline-none focus:border-[#4aa3ff] transition-all"
+                  placeholder="XXXXXX"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
               </div>
             </div>
             <div className="flex gap-4">
-              <button onClick={() => setMode('CHOICE')} className="flex-1 py-5 text-[#9aa4b2] font-black uppercase tracking-widest text-xs">Назад</button>
-              <button onClick={() => userName && code && onJoin(userName, code)} className="flex-[2] py-5 bg-[#4aa3ff] text-white rounded-3xl font-black text-sm uppercase tracking-widest shadow-xl shadow-[#4aa3ff]/20 hover:scale-[1.02] active:scale-95 transition-all">Присоединиться</button>
+              <button onClick={() => setMode('CHOICE')} className="flex-1 py-4 text-[#9aa4b2] font-bold hover:text-white transition-colors">Назад</button>
+              <button 
+                onClick={() => userName && code && onJoin(userName, code)}
+                className="flex-[2] py-4 bg-[#4aa3ff] text-white rounded-xl font-bold shadow-lg shadow-[#4aa3ff]/20 hover:brightness-110 transition-all active:scale-95"
+              >
+                Войти
+              </button>
             </div>
           </div>
         )}

@@ -1,16 +1,16 @@
 
 import React, { useState } from 'react';
-import { FateCharacter, FateStressTrack } from '../types';
-import { COLORS } from '../constants';
-import { Plus, X, Trash2, Upload, Dice5, ChevronDown, ChevronUp } from 'lucide-react';
+import { FateCharacter, FateStressTrack, FateSkillRow } from '../types';
+import { Plus, X, Trash2, Upload, Dice5, ChevronDown, ListPlus } from 'lucide-react';
 
 interface Props {
   character: FateCharacter;
   onChange: (updated: FateCharacter) => void;
-  onRoll: (modifier: number, label?: string) => void;
+  onRoll: (modifier: number) => void;
+  isGMView?: boolean;
 }
 
-export const CharacterSheet: React.FC<Props> = ({ character, onChange, onRoll }) => {
+export const CharacterSheet: React.FC<Props> = ({ character, onChange, onRoll, isGMView }) => {
   const [modifier, setModifier] = useState(0);
 
   const updateField = (field: keyof FateCharacter, value: any) => {
@@ -23,11 +23,22 @@ export const CharacterSheet: React.FC<Props> = ({ character, onChange, onRoll })
     updateField(key, list);
   };
 
+  const addListItem = (key: 'aspects' | 'stunts') => {
+    updateField(key, [...character[key], '']);
+  };
+
+  const removeListItem = (key: 'aspects' | 'stunts', index: number) => {
+    const list = [...character[key]];
+    list.splice(index, 1);
+    updateField(key, list);
+  };
+
   const handleStressClick = (trackIndex: number, cellIndex: number) => {
     const newStress = [...character.stress];
     const track = { ...newStress[trackIndex] };
-    track.values = [...track.values];
-    track.values[cellIndex] = !track.values[cellIndex];
+    const values = [...track.values];
+    values[cellIndex] = !values[cellIndex];
+    track.values = values;
     newStress[trackIndex] = track;
     updateField('stress', newStress);
   };
@@ -36,36 +47,109 @@ export const CharacterSheet: React.FC<Props> = ({ character, onChange, onRoll })
     const newStress = [...character.stress];
     const track = { ...newStress[index] };
     const newCount = Math.max(1, Math.min(8, track.count + delta));
-    const newValues = Array(newCount).fill(false);
-    track.values.forEach((v, i) => { if(i < newCount) newValues[i] = v; });
+    const newValues = Array(newCount).fill(false).map((_, i) => track.values[i] || false);
     track.count = newCount;
     track.values = newValues;
     newStress[index] = track;
     updateField('stress', newStress);
   };
 
-  const handleSkillChange = (level: string, index: number, value: string) => {
-    const newSkills = { ...character.skills };
-    newSkills[level] = [...newSkills[level]];
-    newSkills[level][index] = value;
+  const addStressTrack = () => {
+    const newTrack: FateStressTrack = {
+      id: Date.now().toString(),
+      name: 'Новый стресс',
+      count: 2,
+      values: [false, false],
+      canDelete: true
+    };
+    updateField('stress', [...character.stress, newTrack]);
+  };
+
+  const removeStressTrack = (index: number) => {
+    const newStress = character.stress.filter((_, i) => i !== index);
+    updateField('stress', newStress);
+  };
+
+  const addConsequenceSlot = () => {
+    const labels = ['Лёгкое', 'Среднее', 'Тяжёлое', 'Экстремальное'];
+    const values = [-2, -4, -6, -8];
+    const currentLen = character.consequences.length;
+    const nextIdx = Math.min(currentLen, labels.length - 1);
+    
+    const newCons = [
+      ...character.consequences,
+      { label: labels[nextIdx], value: values[nextIdx], text: '' }
+    ];
+    updateField('consequences', newCons);
+  };
+
+  const removeConsequenceSlot = (index: number) => {
+    const newCons = character.consequences.filter((_, i) => i !== index);
+    updateField('consequences', newCons);
+  };
+
+  const updateConsequenceSeverity = (index: number, value: number) => {
+    const newCons = [...character.consequences];
+    const labelsMap: Record<number, string> = { [-2]: 'Лёгкое', [-4]: 'Среднее', [-6]: 'Тяжёлое', [-8]: 'Экстр.' };
+    newCons[index] = { ...newCons[index], value, label: labelsMap[value] || '???' };
+    updateField('consequences', newCons);
+  };
+
+  // Skill row logic
+  const handleSkillNameChange = (rowIndex: number, skillIndex: number, value: string) => {
+    const newSkills = [...character.skills];
+    const row = { ...newSkills[rowIndex] };
+    const list = [...row.list];
+    list[skillIndex] = value;
+    row.list = list;
+    newSkills[rowIndex] = row;
     updateField('skills', newSkills);
   };
 
-  const addSkillToLevel = (level: string) => {
-    const newSkills = { ...character.skills };
-    newSkills[level] = [...(newSkills[level] || []), ''];
+  const addSkillToRow = (rowIndex: number) => {
+    const newSkills = [...character.skills];
+    const row = { ...newSkills[rowIndex] };
+    row.list = [...row.list, ''];
+    newSkills[rowIndex] = row;
+    updateField('skills', newSkills);
+  };
+
+  const removeSkillFromRow = (rowIndex: number, skillIndex: number) => {
+    const newSkills = [...character.skills];
+    const row = { ...newSkills[rowIndex] };
+    const list = [...row.list];
+    list.splice(skillIndex, 1);
+    row.list = list;
+    newSkills[rowIndex] = row;
+    updateField('skills', newSkills);
+  };
+
+  const updateSkillRowBonus = (rowIndex: number, value: number) => {
+    const newSkills = [...character.skills];
+    newSkills[rowIndex] = { ...newSkills[rowIndex], bonus: value };
+    updateField('skills', newSkills);
+  };
+
+  const addSkillRow = () => {
+    const lastBonus = character.skills.length > 0 ? character.skills[character.skills.length - 1].bonus : 0;
+    const newRow: FateSkillRow = { bonus: lastBonus - 1, list: [''] };
+    updateField('skills', [...character.skills, newRow]);
+  };
+
+  const removeSkillRow = (rowIndex: number) => {
+    const newSkills = character.skills.filter((_, i) => i !== rowIndex);
     updateField('skills', newSkills);
   };
 
   return (
-    <div className="flex flex-col gap-6 p-8 bg-[#1e2128] border border-[#3a4a63] rounded-3xl shadow-2xl w-full max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header className="flex flex-col md:flex-row gap-8">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-48 h-48 bg-[#0f1115] rounded-2xl border-2 border-[#3a4a63] overflow-hidden flex items-center justify-center relative group shadow-inner">
+    <div className="flex flex-col gap-6 p-6 bg-[#24272d] border border-[#3a4a63] rounded-2xl shadow-2xl max-w-5xl mx-auto w-full">
+      <header className="flex flex-col md:flex-row gap-6">
+        <div className="w-full md:w-56 flex flex-col items-center gap-3">
+          <div className="w-full aspect-square bg-black/40 rounded-xl border border-[#3a4a63] overflow-hidden flex items-center justify-center relative group">
             {character.image ? (
-              <img src={character.image} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="Portrait" />
+              <img src={character.image} className="w-full h-full object-cover" alt="Portrait" />
             ) : (
-              <Upload className="text-[#3a4a63] opacity-50" size={40} />
+              <Upload className="text-[#3a4a63]" size={48} />
             )}
             <input 
               type="file" 
@@ -79,134 +163,173 @@ export const CharacterSheet: React.FC<Props> = ({ character, onChange, onRoll })
                 }
               }}
             />
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <span className="text-xs font-bold uppercase tracking-wider">Изменить фото</span>
-            </div>
           </div>
-          
-          <div className="bg-[#0f1115] border border-[#3a4a63] rounded-2xl p-4 w-full flex flex-col items-center shadow-lg">
-            <span className="text-[10px] uppercase text-[#9aa4b2] font-black tracking-widest mb-1">Очки судьбы</span>
-            <div className="flex items-center gap-4">
-              <button onClick={() => updateField('fatePoints', Math.max(0, character.fatePoints - 1))} className="w-8 h-8 rounded-full bg-[#3a4a63] hover:bg-[#4aa3ff] transition-all">-</button>
-              <span className="text-3xl font-black text-[#4aa3ff] tabular-nums">{character.fatePoints}</span>
-              <button onClick={() => updateField('fatePoints', character.fatePoints + 1)} className="w-8 h-8 rounded-full bg-[#3a4a63] hover:bg-[#4aa3ff] transition-all">+</button>
+          <div className="bg-[#15181d] border border-[#3a4a63] rounded-lg p-3 w-full flex flex-col items-center">
+            <span className="text-xs uppercase text-[#9aa4b2] font-bold">Очки судьбы</span>
+            <div className="flex items-center gap-4 mt-1">
+              <button onClick={() => updateField('fatePoints', Math.max(0, character.fatePoints - 1))} className="w-8 h-8 rounded-full bg-[#3a4a63] flex items-center justify-center hover:bg-[#4aa3ff] transition-colors">-</button>
+              <span className="text-2xl font-black text-[#4aa3ff]">{character.fatePoints}</span>
+              <button onClick={() => updateField('fatePoints', character.fatePoints + 1)} className="w-8 h-8 rounded-full bg-[#3a4a63] flex items-center justify-center hover:bg-[#4aa3ff] transition-colors">+</button>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 space-y-4">
+        <div className="flex-1 flex flex-col gap-3">
           <input 
-            className="bg-transparent border-b-2 border-[#3a4a63] hover:border-[#4aa3ff] focus:border-[#4aa3ff] p-2 text-4xl font-black w-full outline-none transition-all placeholder:opacity-20" 
-            placeholder="ИМЯ ПЕРСОНАЖА" 
+            className="bg-[#15181d] border border-[#3a4a63] rounded-lg p-3 text-2xl font-bold w-full focus:outline-none focus:border-[#4aa3ff]" 
+            placeholder="Имя персонажа" 
             value={character.name}
             onChange={(e) => updateField('name', e.target.value)}
           />
-          <div className="grid grid-cols-1 gap-4">
-            <div className="relative">
-              <label className="absolute -top-2 left-3 bg-[#1e2128] px-1 text-[10px] font-black text-[#4aa3ff] tracking-widest">КОНЦЕПЦИЯ</label>
-              <input 
-                className="w-full bg-[#0f1115] border border-[#3a4a63] rounded-xl p-4 pt-5 outline-none focus:border-[#4aa3ff] transition-all" 
-                value={character.concept}
-                onChange={(e) => updateField('concept', e.target.value)}
-              />
-            </div>
-            <div className="relative">
-              <label className="absolute -top-2 left-3 bg-[#1e2128] px-1 text-[10px] font-black text-red-400 tracking-widest">ПРОБЛЕМА</label>
-              <input 
-                className="w-full bg-[#0f1115] border border-[#3a4a63] rounded-xl p-4 pt-5 outline-none focus:border-[#4aa3ff] transition-all" 
-                value={character.trouble}
-                onChange={(e) => updateField('trouble', e.target.value)}
-              />
-            </div>
-          </div>
+          <input 
+            className="bg-[#15181d] border border-[#3a4a63] rounded-lg p-3 text-lg w-full focus:outline-none focus:border-[#4aa3ff]" 
+            placeholder="Концепция" 
+            value={character.concept}
+            onChange={(e) => updateField('concept', e.target.value)}
+          />
+          <input 
+            className="bg-[#15181d] border border-[#3a4a63] rounded-lg p-3 text-lg w-full focus:outline-none focus:border-[#4aa3ff]" 
+            placeholder="Проблема" 
+            value={character.trouble}
+            onChange={(e) => updateField('trouble', e.target.value)}
+          />
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Аспекты и Навыки */}
-        <div className="lg:col-span-7 space-y-8">
-          <section className="bg-[#15171b] p-6 rounded-3xl border border-[#3a4a63] shadow-inner">
-            <h2 className="text-[#4aa3ff] text-xs font-black uppercase tracking-[0.2em] mb-4">Аспекты</h2>
-            <div className="space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="flex flex-col gap-6">
+          <section className="bg-[#1f2228] p-5 rounded-xl border border-[#3a4a63]">
+            <h2 className="text-[#4aa3ff] font-bold mb-4 flex items-center gap-2">Аспекты</h2>
+            <div className="space-y-2">
               {character.aspects.map((aspect, i) => (
-                <div key={i} className="flex gap-2 group">
-                  <div className="w-1 bg-[#3a4a63] group-hover:bg-[#4aa3ff] transition-colors rounded-full"></div>
+                <div key={i} className="flex gap-2">
                   <input 
-                    className="flex-1 bg-transparent border-none text-sm p-1 focus:ring-0 outline-none placeholder:opacity-20" 
-                    placeholder={`Аспект ${i + 1}`} 
+                    className="flex-1 bg-[#15181d] border border-[#3a4a63] rounded-lg p-2 text-sm" 
+                    placeholder="Новый аспект" 
                     value={aspect}
                     onChange={(e) => handleListChange('aspects', i, e.target.value)}
                   />
+                  <button onClick={() => removeListItem('aspects', i)} className="text-red-400 p-2 hover:bg-red-400/10 rounded"><Trash2 size={16}/></button>
                 </div>
               ))}
+              <button onClick={() => addListItem('aspects')} className="w-full py-2 bg-[#3a4a63]/30 rounded-lg text-xs hover:bg-[#3a4a63]/50 transition-colors">+ Добавить аспект</button>
             </div>
           </section>
 
-          <section className="bg-[#15171b] p-6 rounded-3xl border border-[#3a4a63]">
-            <h2 className="text-[#4aa3ff] text-xs font-black uppercase tracking-[0.2em] mb-6">Навыки</h2>
+          <section className="bg-[#1f2228] p-5 rounded-xl border border-[#3a4a63]">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-[#4aa3ff] font-bold">Навыки</h2>
+              <button 
+                onClick={addSkillRow}
+                className="text-[10px] bg-[#3a4a63] px-2 py-1 rounded hover:bg-[#4aa3ff] transition-colors flex items-center gap-1"
+              >
+                <ListPlus size={12}/> + Ряд
+              </button>
+            </div>
             <div className="space-y-4">
-              {Object.keys(character.skills).sort().reverse().map((level) => (
-                <div key={level} className="flex gap-4 items-start">
-                  <div className="w-12 h-12 flex items-center justify-center bg-[#4aa3ff] text-white font-black rounded-2xl shadow-lg shadow-[#4aa3ff]/20 shrink-0">
-                    {level}
-                  </div>
-                  <div className="flex-1 flex flex-wrap gap-2 pt-1">
-                    {character.skills[level].map((skill, idx) => (
-                      <div key={idx} className="flex items-center bg-[#0f1115] border border-[#3a4a63] rounded-xl px-3 py-2 group hover:border-[#4aa3ff] transition-all">
-                        <input 
-                          className="bg-transparent border-none text-sm w-24 outline-none font-medium" 
-                          value={skill} 
-                          onChange={(e) => handleSkillChange(level, idx, e.target.value)}
-                          placeholder="..."
-                        />
-                        <button 
-                          onClick={() => onRoll(parseInt(level), skill)}
-                          className="ml-2 text-[#9aa4b2] hover:text-[#4aa3ff] transition-colors"
-                        >
-                          <Dice5 size={14}/>
-                        </button>
-                        <button 
-                          onClick={() => {
-                            const ns = { ...character.skills };
-                            ns[level] = ns[level].filter((_, i) => i !== idx);
-                            updateField('skills', ns);
-                          }}
-                          className="ml-1 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X size={12}/>
-                        </button>
-                      </div>
-                    ))}
-                    <button onClick={() => addSkillToLevel(level)} className="w-10 h-10 flex items-center justify-center rounded-xl border border-dashed border-[#3a4a63] text-[#3a4a63] hover:border-[#4aa3ff] hover:text-[#4aa3ff] transition-all">
-                      <Plus size={16}/>
+              {character.skills.map((row, rowIndex) => (
+                <div key={rowIndex} className="flex flex-col gap-2 p-3 rounded-xl bg-black/20 group/row border border-transparent hover:border-[#3a4a63] transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="relative group/bonus shrink-0">
+                      <input 
+                        type="number"
+                        className="w-10 h-10 flex items-center justify-center bg-[#4aa3ff] text-white font-black rounded-lg text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        value={row.bonus}
+                        onChange={(e) => updateSkillRowBonus(rowIndex, parseInt(e.target.value) || 0)}
+                      />
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full flex items-center justify-center text-[8px] text-[#4aa3ff] font-bold">+</span>
+                    </div>
+                    <div className="flex-1 flex flex-wrap gap-2">
+                      {row.list.map((skill, skillIndex) => (
+                        <div key={skillIndex} className="flex gap-1 items-center bg-[#15181d] rounded-md border border-[#3a4a63] px-2 py-1.5 shadow-sm group/skill">
+                          <input 
+                            className="bg-transparent border-none text-xs w-24 focus:outline-none" 
+                            value={skill} 
+                            onChange={(e) => handleSkillNameChange(rowIndex, skillIndex, e.target.value)}
+                            placeholder="Навык"
+                          />
+                          <button 
+                            onClick={() => removeSkillFromRow(rowIndex, skillIndex)} 
+                            className="text-red-500 opacity-0 group-hover/skill:opacity-100 transition-opacity hover:scale-110"
+                          >
+                            <X size={12}/>
+                          </button>
+                        </div>
+                      ))}
+                      <button 
+                        onClick={() => addSkillToRow(rowIndex)} 
+                        className="p-1.5 text-[#4aa3ff] hover:bg-[#4aa3ff]/10 rounded-md transition-colors"
+                      >
+                        <Plus size={16}/>
+                      </button>
+                    </div>
+                    <button 
+                      onClick={() => removeSkillRow(rowIndex)} 
+                      className="text-red-400 opacity-0 group-hover/row:opacity-100 transition-opacity p-2 hover:bg-red-400/10 rounded-md"
+                    >
+                      <Trash2 size={16}/>
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           </section>
+
+          <section className="bg-[#1f2228] p-5 rounded-xl border border-[#3a4a63]">
+            <h2 className="text-[#4aa3ff] font-bold mb-4">Трюки</h2>
+            <div className="space-y-2">
+              {character.stunts.map((stunt, i) => (
+                <div key={i} className="flex gap-2">
+                  <textarea 
+                    className="flex-1 bg-[#15181d] border border-[#3a4a63] rounded-lg p-2 text-sm min-h-[60px]" 
+                    placeholder="Описание трюка" 
+                    value={stunt}
+                    onChange={(e) => handleListChange('stunts', i, e.target.value)}
+                  />
+                  <button onClick={() => removeListItem('stunts', i)} className="text-red-400 p-2 hover:bg-red-400/10 rounded"><Trash2 size={16}/></button>
+                </div>
+              ))}
+              <button onClick={() => addListItem('stunts')} className="w-full py-2 bg-[#3a4a63]/30 rounded-lg text-xs hover:bg-[#3a4a63]/50 transition-colors">+ Добавить трюк</button>
+            </div>
+          </section>
         </div>
 
-        {/* Стресс и Броски */}
-        <div className="lg:col-span-5 space-y-8">
-          <section className="bg-[#15171b] p-6 rounded-3xl border border-[#3a4a63]">
-            <h2 className="text-[#4aa3ff] text-xs font-black uppercase tracking-[0.2em] mb-6">Состояние</h2>
-            <div className="space-y-8">
+        <div className="flex flex-col gap-6">
+          <section className="bg-[#1f2228] p-5 rounded-xl border border-[#3a4a63]">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-[#4aa3ff] font-bold">Стресс и Последствия</h2>
+              <button 
+                onClick={addStressTrack} 
+                className="text-[10px] bg-[#3a4a63] px-2 py-1 rounded hover:bg-[#4aa3ff] transition-colors"
+              >
+                + Трек стресса
+              </button>
+            </div>
+            <div className="space-y-6">
               {character.stress.map((track, trackIdx) => (
-                <div key={track.id} className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-[#9aa4b2] uppercase tracking-wider">{track.name}</span>
-                    <div className="flex gap-1">
-                      <button onClick={() => updateStressCapacity(trackIdx, -1)} className="p-1 hover:text-[#4aa3ff]"><ChevronDown size={14}/></button>
-                      <button onClick={() => updateStressCapacity(trackIdx, 1)} className="p-1 hover:text-[#4aa3ff]"><ChevronUp size={14}/></button>
+                <div key={track.id} className="p-3 bg-black/20 rounded-lg relative group/track">
+                  <div className="flex justify-between items-center mb-2">
+                    <input 
+                      className="bg-transparent border-none font-bold text-sm focus:outline-none focus:text-[#4aa3ff] w-full mr-4" 
+                      value={track.name}
+                      onChange={(e) => {
+                        const newStress = [...character.stress];
+                        newStress[trackIdx].name = e.target.value;
+                        updateField('stress', newStress);
+                      }}
+                    />
+                    <div className="flex gap-2 items-center shrink-0">
+                      <button onClick={() => updateStressCapacity(trackIdx, -1)} className="text-xs text-[#9aa4b2] w-5 h-5 flex items-center justify-center bg-[#15181d] rounded hover:text-white">-</button>
+                      <button onClick={() => updateStressCapacity(trackIdx, 1)} className="text-xs text-[#9aa4b2] w-5 h-5 flex items-center justify-center bg-[#15181d] rounded hover:text-white">+</button>
+                      <button onClick={() => removeStressTrack(trackIdx)} className="text-red-400 opacity-0 group-hover/track:opacity-100 transition-opacity ml-1"><Trash2 size={12}/></button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    {track.values.map((val, i) => (
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from({ length: track.count }).map((_, i) => (
                       <div 
                         key={i} 
                         onClick={() => handleStressClick(trackIdx, i)}
-                        className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center cursor-pointer transition-all font-black text-lg ${val ? 'bg-[#4aa3ff] border-[#4aa3ff] text-white shadow-[0_0_15px_rgba(74,163,255,0.4)]' : 'bg-[#0f1115] border-[#3a4a63] text-[#3a4a63]'}`}
+                        className={`w-8 h-8 rounded border-2 border-[#3a4a63] cursor-pointer transition-all flex items-center justify-center font-bold text-xs ${track.values[i] ? 'bg-[#4aa3ff] border-[#4aa3ff] shadow-[0_0_10px_rgba(74,163,255,0.5)] text-white' : 'bg-[#15181d] text-[#3a4a63]'}`}
                       >
                         {i + 1}
                       </div>
@@ -215,48 +338,73 @@ export const CharacterSheet: React.FC<Props> = ({ character, onChange, onRoll })
                 </div>
               ))}
 
-              <div className="space-y-3 pt-6 border-t border-[#3a4a63]/30">
-                <span className="text-[10px] font-black text-[#9aa4b2] uppercase tracking-wider">Последствия</span>
+              <div className="space-y-3 pt-4 border-t border-[#3a4a63]">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-[#9aa4b2] uppercase">Слоты последствий</span>
+                  <button onClick={addConsequenceSlot} className="text-[10px] bg-[#3a4a63] px-2 py-1 rounded hover:bg-[#4aa3ff] transition-colors">+ Слот</button>
+                </div>
                 {character.consequences.map((cons, i) => (
-                  <div key={i} className="flex items-stretch rounded-xl overflow-hidden border border-[#3a4a63] bg-[#0f1115]">
-                    <div className="bg-red-500/10 text-red-400 w-12 flex items-center justify-center text-sm font-black border-r border-[#3a4a63]">{cons.value}</div>
+                  <div key={i} className="flex items-stretch rounded-lg overflow-hidden border border-[#3a4a63] group/cons h-10">
+                    <div className="relative group/severity shrink-0 bg-[#4aa3ff] flex items-center">
+                        <select 
+                            className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full h-full"
+                            value={cons.value}
+                            onChange={(e) => updateConsequenceSeverity(i, parseInt(e.target.value))}
+                        >
+                            <option value="-2">Mild (-2)</option>
+                            <option value="-4">Moderate (-4)</option>
+                            <option value="-6">Severe (-6)</option>
+                            <option value="-8">Extreme (-8)</option>
+                        </select>
+                        <div className="px-3 flex items-center text-[10px] font-black whitespace-nowrap text-white gap-1 uppercase tracking-tighter">
+                            {cons.label} <span>{cons.value}</span> <ChevronDown size={10}/>
+                        </div>
+                    </div>
                     <input 
-                      className="flex-1 bg-transparent px-4 py-2 text-sm outline-none" 
-                      placeholder={cons.label}
+                      className="flex-1 bg-[#15181d] px-3 text-sm focus:outline-none min-w-0" 
+                      placeholder="Заполните последствие..." 
                       value={cons.text}
                       onChange={(e) => {
-                        const nc = [...character.consequences];
-                        nc[i].text = e.target.value;
-                        updateField('consequences', nc);
+                        const newCons = [...character.consequences];
+                        newCons[i].text = e.target.value;
+                        updateField('consequences', newCons);
                       }}
                     />
+                    <button onClick={() => removeConsequenceSlot(i)} className="bg-[#15181d] text-red-400 px-3 opacity-0 group-hover/cons:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-400/10">
+                      <Trash2 size={14}/>
+                    </button>
                   </div>
                 ))}
               </div>
             </div>
           </section>
 
-          <section className="bg-gradient-to-br from-[#1e2128] to-[#0f1115] p-6 rounded-3xl border border-[#4aa3ff]/30 shadow-xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700">
-               <Dice5 size={120} className="text-[#4aa3ff]"/>
-            </div>
-            <h2 className="text-[#4aa3ff] text-xs font-black uppercase tracking-[0.2em] mb-6 relative">Быстрый бросок</h2>
-            <div className="flex flex-col gap-6 relative">
-              <div className="flex items-center justify-center gap-6">
-                 <button onClick={() => setModifier(m => m - 1)} className="w-12 h-12 rounded-2xl bg-[#0f1115] border border-[#3a4a63] flex items-center justify-center text-xl font-black hover:border-[#4aa3ff] transition-all">-</button>
-                 <div className="text-center">
-                    <span className="block text-[10px] font-black text-[#9aa4b2] uppercase mb-1">МОДИФИКАТОР</span>
-                    <span className="text-4xl font-black text-[#e6e9ef] tabular-nums">{modifier >= 0 ? `+${modifier}` : modifier}</span>
-                 </div>
-                 <button onClick={() => setModifier(m => m + 1)} className="w-12 h-12 rounded-2xl bg-[#0f1115] border border-[#3a4a63] flex items-center justify-center text-xl font-black hover:border-[#4aa3ff] transition-all">+</button>
+          <section className="bg-[#1f2228] p-5 rounded-xl border border-[#3a4a63]">
+            <h2 className="text-[#4aa3ff] font-bold mb-4">Бросок FATE</h2>
+            <div className="flex flex-col items-center gap-6">
+              <div className="flex items-center gap-4 bg-[#15181d] p-3 rounded-lg border border-[#3a4a63]">
+                <span className="text-xs font-bold text-[#9aa4b2]">МОД:</span>
+                <button onClick={() => setModifier(m => m - 1)} className="w-8 h-8 rounded bg-[#3a4a63] hover:bg-[#3a4a63]/70">-</button>
+                <span className="text-xl font-black min-w-[2.5rem] text-center">{modifier >= 0 ? `+${modifier}` : modifier}</span>
+                <button onClick={() => setModifier(m => m + 1)} className="w-8 h-8 rounded bg-[#3a4a63] hover:bg-[#3a4a63]/70">+</button>
               </div>
               <button 
                 onClick={() => onRoll(modifier)}
-                className="w-full py-5 bg-[#4aa3ff] hover:bg-[#5bb4ff] text-white rounded-2xl font-black text-xl shadow-[0_0_20px_rgba(74,163,255,0.3)] transition-all flex items-center justify-center gap-3 active:scale-95"
+                className="w-full py-4 bg-gradient-to-r from-[#4aa3ff] to-[#2f6fa3] rounded-xl font-bold text-lg shadow-lg hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
-                <Dice5 size={28}/> БРОСИТЬ 4DF
+                <Dice5 size={24}/> Бросить 4DF
               </button>
             </div>
+          </section>
+
+          <section className="bg-[#1f2228] p-5 rounded-xl border border-[#3a4a63] flex-1">
+            <h2 className="text-[#4aa3ff] font-bold mb-2">Дополнительно</h2>
+            <textarea 
+              className="w-full h-40 bg-[#15181d] border border-[#3a4a63] rounded-lg p-3 text-sm resize-none focus:outline-none focus:border-[#4aa3ff]"
+              placeholder="Инвентарь, заметки, детали мира..."
+              value={character.extras}
+              onChange={(e) => updateField('extras', e.target.value)}
+            />
           </section>
         </div>
       </div>
