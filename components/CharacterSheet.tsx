@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FateCharacter, FateStressTrack, FateSkillRow } from '../types';
+import { FateCharacter, FateStressTrack, FateSkillRow } from '../types.ts';
 import { Plus, X, Trash2, Upload, Dice5, ChevronDown, ListPlus } from 'lucide-react';
 
 interface Props {

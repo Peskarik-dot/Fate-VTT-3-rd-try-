@@ -1,32 +1,39 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { RoomState, FateCharacter, ChatMessage, Role } from './types';
-import { INITIAL_CHARACTER } from './constants';
-import { CharacterSheet } from './components/CharacterSheet';
-import { Chat } from './components/Chat';
+import { RoomState, FateCharacter, ChatMessage, Role } from './types.ts';
+import { INITIAL_CHARACTER } from './constants.tsx';
+import { CharacterSheet } from './components/CharacterSheet.tsx';
+import { Chat } from './components/Chat.tsx';
 import { Shield, User, LogOut, PlusCircle, Users, Trash2 } from 'lucide-react';
 
-// Обновили версию ключа, чтобы избежать ошибок со старыми данными в браузере
-const LOCAL_STORAGE_KEY = 'fate_tabletop_v3_stable';
+// Обновили версию ключа для GitHub Pages
+const LOCAL_STORAGE_KEY = 'fate_tabletop_gh_v1';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'LOGIN' | 'TABLE'>('LOGIN');
   const [room, setRoom] = useState<RoomState | null>(null);
   const [activeTab, setActiveTab] = useState<'MY_SHEET' | 'GM_TOOLS'>('MY_SHEET');
   
+  // Функция для безопасного копирования начальных данных (чтобы не было общих ссылок)
+  const createNewCharacter = (overrides = {}): FateCharacter => {
+    return {
+      ...JSON.parse(JSON.stringify(INITIAL_CHARACTER)),
+      ...overrides
+    };
+  };
+
   // Загрузка состояния
   useEffect(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.roomName && Array.isArray(parsed.messages)) {
+        if (parsed && parsed.roomName) {
           setRoom(parsed);
           setView('TABLE');
         }
       } catch (e) {
         console.error("Failed to load save", e);
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
     }
   }, []);
@@ -46,7 +53,7 @@ const App: React.FC = () => {
       myRole: 'GM',
       myName: 'Master',
       players: [],
-      npcs: [{ ...INITIAL_CHARACTER, id: 'npc_1', name: 'Безымянный NPC', isNPC: true }],
+      npcs: [createNewCharacter({ id: 'npc_1', name: 'Безымянный NPC', isNPC: true })],
       messages: [{ id: '1', sender: 'System', text: `Комната "${roomName}" создана. Код: ${inviteCode}`, timestamp: Date.now(), type: 'message' }]
     };
     setRoom(initialState);
@@ -60,7 +67,7 @@ const App: React.FC = () => {
       inviteCode: code,
       myRole: 'PLAYER',
       myName: name,
-      players: [{ ...INITIAL_CHARACTER, id: 'player_me', name: name }],
+      players: [createNewCharacter({ id: 'player_me', name: name })],
       npcs: [],
       messages: [{ id: '1', sender: 'System', text: `${name} присоединился к игре.`, timestamp: Date.now(), type: 'message' }]
     };
@@ -165,7 +172,7 @@ const App: React.FC = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto p-8 relative z-10">
-          {activeTab === 'MY_SHEET' && room && (
+          {activeTab === 'MY_SHEET' && room && (room.myRole === 'PLAYER' ? room.players[0] : room.npcs[0]) && (
             <CharacterSheet 
               character={room.myRole === 'PLAYER' ? room.players[0] : room.npcs[0]} 
               onChange={(updated) => updateCharacter(updated.id, updated)} 
@@ -179,7 +186,7 @@ const App: React.FC = () => {
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-black text-[#4aa3ff]">Список NPC</h2>
                 <button 
-                  onClick={() => setRoom(prev => prev ? ({...prev, npcs: [...prev.npcs, { ...INITIAL_CHARACTER, id: `npc_${Date.now()}`, name: 'Новый NPC', isNPC: true }]}) : null)}
+                  onClick={() => setRoom(prev => prev ? ({...prev, npcs: [...prev.npcs, createNewCharacter({ id: `npc_${Date.now()}`, name: 'Новый NPC', isNPC: true })]}) : null)}
                   className="bg-[#28a745] hover:bg-[#218838] px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all shadow-md"
                 >
                   <PlusCircle size={20}/> Добавить NPC

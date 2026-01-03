@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage } from '../types';
-import { COLORS } from '../constants';
+import { ChatMessage } from '../types.ts';
+import { COLORS } from '../constants.tsx';
 import { Send, Hash, Dice3 } from 'lucide-react';
 
 interface Props {
