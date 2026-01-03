@@ -6,15 +6,13 @@ import { CharacterSheet } from './components/CharacterSheet.tsx';
 import { Chat } from './components/Chat.tsx';
 import { Shield, User, LogOut, PlusCircle, Users, Trash2 } from 'lucide-react';
 
-// Обновили версию ключа для GitHub Pages
-const LOCAL_STORAGE_KEY = 'fate_tabletop_gh_v1';
+const LOCAL_STORAGE_KEY = 'fate_tabletop_gh_v2';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'LOGIN' | 'TABLE'>('LOGIN');
   const [room, setRoom] = useState<RoomState | null>(null);
   const [activeTab, setActiveTab] = useState<'MY_SHEET' | 'GM_TOOLS'>('MY_SHEET');
   
-  // Функция для безопасного копирования начальных данных (чтобы не было общих ссылок)
   const createNewCharacter = (overrides = {}): FateCharacter => {
     return {
       ...JSON.parse(JSON.stringify(INITIAL_CHARACTER)),
@@ -22,7 +20,6 @@ const App: React.FC = () => {
     };
   };
 
-  // Загрузка состояния
   useEffect(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
@@ -38,7 +35,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Сохранение состояния
   useEffect(() => {
     if (room) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(room));
@@ -126,13 +122,14 @@ const App: React.FC = () => {
     if (window.confirm("Выйти в меню? Прогресс останется в памяти браузера.")) {
       setRoom(null);
       setView('LOGIN');
-      setActiveTab('MY_SHEET');
     }
   }, []);
 
   if (view === 'LOGIN') {
     return <LoginView onCreate={handleCreateRoom} onJoin={handleJoinRoom} />;
   }
+
+  const activeChar = room?.myRole === 'PLAYER' ? room?.players[0] : room?.npcs[0];
 
   return (
     <div className="flex h-screen w-screen bg-[#15171b] text-[#e6e9ef] overflow-hidden">
@@ -172,12 +169,12 @@ const App: React.FC = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto p-8 relative z-10">
-          {activeTab === 'MY_SHEET' && room && (room.myRole === 'PLAYER' ? room.players[0] : room.npcs[0]) && (
+          {activeTab === 'MY_SHEET' && activeChar && (
             <CharacterSheet 
-              character={room.myRole === 'PLAYER' ? room.players[0] : room.npcs[0]} 
+              character={activeChar} 
               onChange={(updated) => updateCharacter(updated.id, updated)} 
               onRoll={handleRoll}
-              isGMView={room.myRole === 'GM'}
+              isGMView={room?.myRole === 'GM'}
             />
           )}
 
@@ -233,7 +230,7 @@ const LoginView: React.FC<{ onCreate: (name: string) => void, onJoin: (name: str
   const [code, setCode] = useState('');
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top,_#20242b,_#15171b)]">
+    <div className="h-screen w-screen flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top,_#20242b,_#15171b)] animate-fade-in">
       <div className="w-full max-w-md bg-[#24272d] border border-[#3a4a63] rounded-3xl p-8 shadow-2xl flex flex-col gap-8">
         <div className="text-center">
           <h1 className="text-4xl font-black text-[#4aa3ff] mb-2 tracking-tight">FATE TABLE</h1>
@@ -259,34 +256,34 @@ const LoginView: React.FC<{ onCreate: (name: string) => void, onJoin: (name: str
           </div>
         )}
 
-        {mode === 'CREATE' && (
-          <div className="flex flex-col gap-6">
-            <div>
-              <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Название комнаты</label>
-              <input autoFocus className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 focus:outline-none focus:border-[#4aa3ff]" placeholder="Напр: Хроники Акаши" value={roomName} onChange={(e) => setRoomName(e.target.value)}/>
-            </div>
+        {(mode === 'CREATE' || mode === 'JOIN') && (
+          <div className="flex flex-col gap-6 animate-fade-in">
+            {mode === 'CREATE' && (
+              <div>
+                <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Название комнаты</label>
+                <input autoFocus className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 focus:outline-none focus:border-[#4aa3ff] text-white" placeholder="Напр: Хроники Акаши" value={roomName} onChange={(e) => setRoomName(e.target.value)}/>
+              </div>
+            )}
+            {mode === 'JOIN' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Ваше имя</label>
+                  <input autoFocus className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 focus:outline-none focus:border-[#4aa3ff] text-white" placeholder="Напр: Арагорн" value={userName} onChange={(e) => setUserName(e.target.value)}/>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Код приглашения</label>
+                  <input className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 font-mono text-center tracking-widest uppercase focus:outline-none focus:border-[#4aa3ff] text-white" placeholder="XXXXXX" value={code} onChange={(e) => setCode(e.target.value)}/>
+                </div>
+              </div>
+            )}
             <div className="flex gap-4">
               <button onClick={() => setMode('CHOICE')} className="flex-1 py-4 text-[#9aa4b2] font-bold">Назад</button>
-              <button onClick={() => roomName && onCreate(roomName)} className="flex-[2] py-4 bg-[#4aa3ff] text-white rounded-xl font-bold hover:brightness-110 active:scale-95 transition-all">Создать</button>
-            </div>
-          </div>
-        )}
-
-        {mode === 'JOIN' && (
-          <div className="flex flex-col gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Ваше имя</label>
-                <input autoFocus className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 focus:outline-none focus:border-[#4aa3ff]" placeholder="Напр: Арагорн" value={userName} onChange={(e) => setUserName(e.target.value)}/>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Код приглашения</label>
-                <input className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 font-mono text-center tracking-widest uppercase focus:outline-none focus:border-[#4aa3ff]" placeholder="XXXXXX" value={code} onChange={(e) => setCode(e.target.value)}/>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <button onClick={() => setMode('CHOICE')} className="flex-1 py-4 text-[#9aa4b2] font-bold">Назад</button>
-              <button onClick={() => userName && code && onJoin(userName, code)} className="flex-[2] py-4 bg-[#4aa3ff] text-white rounded-xl font-bold hover:brightness-110 active:scale-95 transition-all">Войти</button>
+              <button 
+                onClick={() => mode === 'CREATE' ? roomName && onCreate(roomName) : (userName && code && onJoin(userName, code))} 
+                className="flex-[2] py-4 bg-[#4aa3ff] text-white rounded-xl font-bold hover:brightness-110 active:scale-95 transition-all"
+              >
+                {mode === 'CREATE' ? 'Создать' : 'Войти'}
+              </button>
             </div>
           </div>
         )}
