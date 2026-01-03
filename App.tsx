@@ -1,19 +1,18 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { RoomState, FateCharacter, ChatMessage, Role } from './types.ts';
+import { Shield, User, LogOut, PlusCircle, Users, Trash2 } from 'lucide-react';
 import { INITIAL_CHARACTER } from './constants.tsx';
 import { CharacterSheet } from './components/CharacterSheet.tsx';
 import { Chat } from './components/Chat.tsx';
-import { Shield, User, LogOut, PlusCircle, Users, Trash2 } from 'lucide-react';
 
-const LOCAL_STORAGE_KEY = 'fate_tabletop_gh_v2';
+const LOCAL_STORAGE_KEY = 'fate_tabletop_gh_v3';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'LOGIN' | 'TABLE'>('LOGIN');
-  const [room, setRoom] = useState<RoomState | null>(null);
+  const [room, setRoom] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'MY_SHEET' | 'GM_TOOLS'>('MY_SHEET');
   
-  const createNewCharacter = (overrides = {}): FateCharacter => {
+  const createNewCharacter = (overrides = {}): any => {
     return {
       ...JSON.parse(JSON.stringify(INITIAL_CHARACTER)),
       ...overrides
@@ -43,7 +42,7 @@ const App: React.FC = () => {
 
   const handleCreateRoom = useCallback((roomName: string) => {
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const initialState: RoomState = {
+    const initialState = {
       roomName,
       inviteCode,
       myRole: 'GM',
@@ -58,7 +57,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleJoinRoom = useCallback((name: string, code: string) => {
-    const initialState: RoomState = {
+    const initialState = {
       roomName: 'Игровая комната',
       inviteCode: code,
       myRole: 'PLAYER',
@@ -75,7 +74,7 @@ const App: React.FC = () => {
   const handleSendMessage = useCallback((text: string) => {
     setRoom(prev => {
       if (!prev) return null;
-      const newMessage: ChatMessage = {
+      const newMessage = {
         id: Date.now().toString(),
         sender: prev.myName,
         text,
@@ -93,7 +92,7 @@ const App: React.FC = () => {
       const sum = dice.reduce((a, b) => a + b, 0);
       const total = sum + modifier;
 
-      const newMessage: ChatMessage = {
+      const newMessage = {
         id: Date.now().toString(),
         sender: prev.myName,
         text: `бросил 4df`,
@@ -105,7 +104,7 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const updateCharacter = useCallback((id: string, updated: FateCharacter) => {
+  const updateCharacter = useCallback((id: string, updated: any) => {
     setRoom(prev => {
       if (!prev) return null;
       if (prev.myRole === 'PLAYER') {
@@ -230,7 +229,7 @@ const LoginView: React.FC<{ onCreate: (name: string) => void, onJoin: (name: str
   const [code, setCode] = useState('');
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top,_#20242b,_#15171b)] animate-fade-in">
+    <div className="h-screen w-screen flex items-center justify-center p-6 bg-[#15171b]">
       <div className="w-full max-w-md bg-[#24272d] border border-[#3a4a63] rounded-3xl p-8 shadow-2xl flex flex-col gap-8">
         <div className="text-center">
           <h1 className="text-4xl font-black text-[#4aa3ff] mb-2 tracking-tight">FATE TABLE</h1>
@@ -257,7 +256,7 @@ const LoginView: React.FC<{ onCreate: (name: string) => void, onJoin: (name: str
         )}
 
         {(mode === 'CREATE' || mode === 'JOIN') && (
-          <div className="flex flex-col gap-6 animate-fade-in">
+          <div className="flex flex-col gap-6">
             {mode === 'CREATE' && (
               <div>
                 <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Название комнаты</label>
