@@ -1,35 +1,37 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { RoomState, FateCharacter, ChatMessage, Role } from './types';
-import { INITIAL_CHARACTER, COLORS } from './constants';
+import { INITIAL_CHARACTER } from './constants';
 import { CharacterSheet } from './components/CharacterSheet';
 import { Chat } from './components/Chat';
-import { Shield, User, LogOut, ChevronRight, PlusCircle, Settings, Users, Trash2 } from 'lucide-react';
+import { Shield, User, LogOut, PlusCircle, Users, Trash2 } from 'lucide-react';
 
-const LOCAL_STORAGE_KEY = 'fate_tabletop_save_v1';
+// Обновили версию ключа, чтобы избежать ошибок со старыми данными в браузере
+const LOCAL_STORAGE_KEY = 'fate_tabletop_v3_stable';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'LOGIN' | 'TABLE'>('LOGIN');
   const [room, setRoom] = useState<RoomState | null>(null);
-  const [activeTab, setActiveTab] = useState<'MY_SHEET' | 'GM_TOOLS' | 'DASHBOARD'>('MY_SHEET');
+  const [activeTab, setActiveTab] = useState<'MY_SHEET' | 'GM_TOOLS'>('MY_SHEET');
   
-  // Persist State Load
+  // Загрузка состояния
   useEffect(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.roomName) {
+        if (parsed && parsed.roomName && Array.isArray(parsed.messages)) {
           setRoom(parsed);
           setView('TABLE');
         }
       } catch (e) {
         console.error("Failed to load save", e);
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
     }
   }, []);
 
-  // Persist State Save
+  // Сохранение состояния
   useEffect(() => {
     if (room) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(room));
@@ -113,13 +115,8 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const handleLogout = useCallback((e?: React.MouseEvent) => {
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    if (window.confirm("Вы точно хотите выйти? Прогресс останется сохраненным локально, но вы вернетесь в меню.")) {
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
+  const handleLogout = useCallback(() => {
+    if (window.confirm("Выйти в меню? Прогресс останется в памяти браузера.")) {
       setRoom(null);
       setView('LOGIN');
       setActiveTab('MY_SHEET');
@@ -132,7 +129,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen bg-[#15171b] text-[#e6e9ef] overflow-hidden">
-      {/* Main Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 border-b border-[#3a4a63] bg-[#1b1d21] flex items-center justify-between px-6 shrink-0 shadow-xl relative z-50">
           <div className="flex items-center gap-4">
@@ -159,9 +155,8 @@ const App: React.FC = () => {
             )}
             <div className="w-px h-6 bg-[#3a4a63] mx-2"></div>
             <button 
-              type="button"
               onClick={handleLogout} 
-              className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-all flex items-center gap-2 font-bold cursor-pointer"
+              className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-all cursor-pointer"
               title="Выйти"
             >
               <LogOut size={20}/>
@@ -180,18 +175,18 @@ const App: React.FC = () => {
           )}
 
           {activeTab === 'GM_TOOLS' && room && (
-            <div className="flex flex-col gap-8 max-w-5xl mx-auto w-full">
+            <div className="flex flex-col gap-8 max-w-5xl mx-auto w-full pb-20">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-black text-[#4aa3ff]">Список NPC</h2>
                 <button 
                   onClick={() => setRoom(prev => prev ? ({...prev, npcs: [...prev.npcs, { ...INITIAL_CHARACTER, id: `npc_${Date.now()}`, name: 'Новый NPC', isNPC: true }]}) : null)}
-                  className="bg-[#28a745] hover:bg-[#218838] px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all shadow-md shadow-[#28a745]/20"
+                  className="bg-[#28a745] hover:bg-[#218838] px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all shadow-md"
                 >
                   <PlusCircle size={20}/> Добавить NPC
                 </button>
               </div>
-              <div className="grid grid-cols-1 gap-12 pb-20">
-                {room.npcs.map((npc, idx) => (
+              <div className="flex flex-col gap-12">
+                {room.npcs.map((npc) => (
                   <div key={npc.id} className="relative">
                      <div className="absolute top-4 right-4 z-10">
                         <button 
@@ -215,7 +210,6 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Sidebar Chat */}
       <Chat 
         messages={room?.messages || []} 
         onSendMessage={handleSendMessage} 
@@ -233,7 +227,7 @@ const LoginView: React.FC<{ onCreate: (name: string) => void, onJoin: (name: str
 
   return (
     <div className="h-screen w-screen flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top,_#20242b,_#15171b)]">
-      <div className="w-full max-w-md bg-[#24272d] border border-[#3a4a63] rounded-3xl p-8 shadow-2xl flex flex-col gap-8 animate-in fade-in zoom-in duration-300">
+      <div className="w-full max-w-md bg-[#24272d] border border-[#3a4a63] rounded-3xl p-8 shadow-2xl flex flex-col gap-8">
         <div className="text-center">
           <h1 className="text-4xl font-black text-[#4aa3ff] mb-2 tracking-tight">FATE TABLE</h1>
           <p className="text-[#9aa4b2] text-sm font-medium">Интерактивный стол для ваших приключений</p>
@@ -241,84 +235,51 @@ const LoginView: React.FC<{ onCreate: (name: string) => void, onJoin: (name: str
 
         {mode === 'CHOICE' && (
           <div className="flex flex-col gap-4">
-            <button 
-              onClick={() => setMode('CREATE')}
-              className="group flex items-center justify-between p-6 bg-[#1b1d21] border border-[#3a4a63] rounded-2xl hover:border-[#4aa3ff] hover:bg-[#1f2228] transition-all"
-            >
+            <button onClick={() => setMode('CREATE')} className="group flex items-center justify-between p-6 bg-[#1b1d21] border border-[#3a4a63] rounded-2xl hover:border-[#4aa3ff] hover:bg-[#1f2228] transition-all">
               <div className="text-left">
                 <span className="block text-lg font-bold mb-1">Стать Мастером</span>
-                <span className="text-xs text-[#9aa4b2]">Создать новую комнату и код приглашения</span>
+                <span className="text-xs text-[#9aa4b2]">Создать комнату и получить код</span>
               </div>
-              <Shield className="text-[#4aa3ff] group-hover:scale-110 transition-transform" size={32}/>
+              <Shield className="text-[#4aa3ff]" size={32}/>
             </button>
-            <button 
-              onClick={() => setMode('JOIN')}
-              className="group flex items-center justify-between p-6 bg-[#1b1d21] border border-[#3a4a63] rounded-2xl hover:border-[#4aa3ff] hover:bg-[#1f2228] transition-all"
-            >
+            <button onClick={() => setMode('JOIN')} className="group flex items-center justify-between p-6 bg-[#1b1d21] border border-[#3a4a63] rounded-2xl hover:border-[#4aa3ff] hover:bg-[#1f2228] transition-all">
               <div className="text-left">
                 <span className="block text-lg font-bold mb-1">Присоединиться</span>
-                <span className="text-xs text-[#9aa4b2]">Войти как игрок по коду приглашения</span>
+                <span className="text-xs text-[#9aa4b2]">Войти как игрок по коду</span>
               </div>
-              <Users className="text-[#4aa3ff] group-hover:scale-110 transition-transform" size={32}/>
+              <Users className="text-[#4aa3ff]" size={32}/>
             </button>
           </div>
         )}
 
         {mode === 'CREATE' && (
-          <div className="flex flex-col gap-6 animate-in slide-in-from-right duration-300">
+          <div className="flex flex-col gap-6">
             <div>
               <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Название комнаты</label>
-              <input 
-                autoFocus
-                className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 focus:outline-none focus:border-[#4aa3ff] transition-all"
-                placeholder="Напр: Хроники Акаши"
-                value={roomName}
-                onChange={(e) => setRoomName(e.target.value)}
-              />
+              <input autoFocus className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 focus:outline-none focus:border-[#4aa3ff]" placeholder="Напр: Хроники Акаши" value={roomName} onChange={(e) => setRoomName(e.target.value)}/>
             </div>
             <div className="flex gap-4">
-              <button onClick={() => setMode('CHOICE')} className="flex-1 py-4 text-[#9aa4b2] font-bold hover:text-white transition-colors">Назад</button>
-              <button 
-                onClick={() => roomName && onCreate(roomName)}
-                className="flex-[2] py-4 bg-[#4aa3ff] text-white rounded-xl font-bold shadow-lg shadow-[#4aa3ff]/20 hover:brightness-110 transition-all active:scale-95"
-              >
-                Создать
-              </button>
+              <button onClick={() => setMode('CHOICE')} className="flex-1 py-4 text-[#9aa4b2] font-bold">Назад</button>
+              <button onClick={() => roomName && onCreate(roomName)} className="flex-[2] py-4 bg-[#4aa3ff] text-white rounded-xl font-bold hover:brightness-110 active:scale-95 transition-all">Создать</button>
             </div>
           </div>
         )}
 
         {mode === 'JOIN' && (
-          <div className="flex flex-col gap-6 animate-in slide-in-from-right duration-300">
+          <div className="flex flex-col gap-6">
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Ваше имя</label>
-                <input 
-                  autoFocus
-                  className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 focus:outline-none focus:border-[#4aa3ff] transition-all"
-                  placeholder="Напр: Арагорн"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                />
+                <input autoFocus className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 focus:outline-none focus:border-[#4aa3ff]" placeholder="Напр: Арагорн" value={userName} onChange={(e) => setUserName(e.target.value)}/>
               </div>
               <div>
                 <label className="block text-xs font-bold text-[#9aa4b2] uppercase mb-2">Код приглашения</label>
-                <input 
-                  className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 font-mono text-center tracking-widest uppercase focus:outline-none focus:border-[#4aa3ff] transition-all"
-                  placeholder="XXXXXX"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
+                <input className="w-full bg-[#15181d] border border-[#3a4a63] rounded-xl p-4 font-mono text-center tracking-widest uppercase focus:outline-none focus:border-[#4aa3ff]" placeholder="XXXXXX" value={code} onChange={(e) => setCode(e.target.value)}/>
               </div>
             </div>
             <div className="flex gap-4">
-              <button onClick={() => setMode('CHOICE')} className="flex-1 py-4 text-[#9aa4b2] font-bold hover:text-white transition-colors">Назад</button>
-              <button 
-                onClick={() => userName && code && onJoin(userName, code)}
-                className="flex-[2] py-4 bg-[#4aa3ff] text-white rounded-xl font-bold shadow-lg shadow-[#4aa3ff]/20 hover:brightness-110 transition-all active:scale-95"
-              >
-                Войти
-              </button>
+              <button onClick={() => setMode('CHOICE')} className="flex-1 py-4 text-[#9aa4b2] font-bold">Назад</button>
+              <button onClick={() => userName && code && onJoin(userName, code)} className="flex-[2] py-4 bg-[#4aa3ff] text-white rounded-xl font-bold hover:brightness-110 active:scale-95 transition-all">Войти</button>
             </div>
           </div>
         )}
