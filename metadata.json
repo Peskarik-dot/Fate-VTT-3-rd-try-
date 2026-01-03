@@ -1,8 +1,5 @@
 {
   "name": "FATE Interactive Table",
   "description": "A high-fidelity digital tabletop for FATE RPG, featuring character sheets, GM tools, real-time dice rolls, and persistent local storage.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
+  "requestFramePermissions": []
 }

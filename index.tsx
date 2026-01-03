@@ -1,4 +1,14 @@
 
-// Этот файл теперь служит резервной копией, 
-// основная логика запуска находится в index.html для совместимости с GitHub Pages.
-export {};
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App.tsx';
+
+const container = document.getElementById('root');
+if (container) {
+  const root = createRoot(container);
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}

@@ -6,13 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FATE Interactive Table</title>
   
-  <!-- Загрузка стилей и иконок -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- Загрузка Babel для обработки TSX прямо в браузере (для GitHub Pages) -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -23,24 +19,25 @@
     }
     #root {
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
     }
-    .loading-screen {
+    /* Стили для экрана загрузки, пока компилируется TSX */
+    .loading-container {
       height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 20px;
+      background: #15171b;
+      color: #9aa4b2;
     }
     .spinner {
       width: 40px;
       height: 40px;
-      border: 4px solid #3a4a63;
+      border: 3px solid #1b1d21;
       border-top-color: #4aa3ff;
       border-radius: 50%;
-      animation: spin 1s linear infinite;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 1rem;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
@@ -48,10 +45,11 @@
   <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom": "https://esm.sh/react-dom@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.473.0",
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.473.0?external=react",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
@@ -59,21 +57,15 @@
 </head>
 <body>
   <div id="root">
-    <div class="loading-screen">
+    <div class="loading-container">
       <div class="spinner"></div>
-      <p style="color: #9aa4b2; font-weight: 600;">Загрузка игрового стола...</p>
+      <p>Инициализация игрового стола...</p>
     </div>
   </div>
 
-  <!-- Основной скрипт запуска через Babel -->
-  <script type="text/babel" data-type="module">
-    import React from 'react';
-    import { createRoot } from 'react-dom/client';
-    import App from './App.tsx';
-
-    const container = document.getElementById('root');
-    const root = createRoot(container);
-    root.render(<App />);
-  </script>
+  <!-- esm.sh/run сам найдет зависимости и скомпилирует .tsx -->
+  <script type="module" src="https://esm.sh/run"></script>
+  <!-- Точка входа в приложение -->
+  <script type="module" src="./index.tsx"></script>
 </body>
 </html>

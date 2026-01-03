@@ -5,7 +5,7 @@ import { INITIAL_CHARACTER } from './constants.tsx';
 import { CharacterSheet } from './components/CharacterSheet.tsx';
 import { Chat } from './components/Chat.tsx';
 
-const LOCAL_STORAGE_KEY = 'fate_tabletop_gh_v3';
+const LOCAL_STORAGE_KEY = 'fate_tabletop_gh_v4';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'LOGIN' | 'TABLE'>('LOGIN');
@@ -72,7 +72,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleSendMessage = useCallback((text: string) => {
-    setRoom(prev => {
+    setRoom((prev: any) => {
       if (!prev) return null;
       const newMessage = {
         id: Date.now().toString(),
@@ -86,7 +86,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleRoll = useCallback((modifier: number) => {
-    setRoom(prev => {
+    setRoom((prev: any) => {
       if (!prev) return null;
       const dice = Array.from({ length: 4 }).map(() => Math.floor(Math.random() * 3) - 1);
       const sum = dice.reduce((a, b) => a + b, 0);
@@ -105,13 +105,13 @@ const App: React.FC = () => {
   }, []);
 
   const updateCharacter = useCallback((id: string, updated: any) => {
-    setRoom(prev => {
+    setRoom((prev: any) => {
       if (!prev) return null;
       if (prev.myRole === 'PLAYER') {
-        const players = prev.players.map(p => p.id === id ? updated : p);
+        const players = prev.players.map((p: any) => p.id === id ? updated : p);
         return { ...prev, players };
       } else {
-        const npcs = prev.npcs.map(n => n.id === id ? updated : n);
+        const npcs = prev.npcs.map((n: any) => n.id === id ? updated : n);
         return { ...prev, npcs };
       }
     });
@@ -121,6 +121,7 @@ const App: React.FC = () => {
     if (window.confirm("Выйти в меню? Прогресс останется в памяти браузера.")) {
       setRoom(null);
       setView('LOGIN');
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
     }
   }, []);
 
@@ -182,18 +183,18 @@ const App: React.FC = () => {
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-black text-[#4aa3ff]">Список NPC</h2>
                 <button 
-                  onClick={() => setRoom(prev => prev ? ({...prev, npcs: [...prev.npcs, createNewCharacter({ id: `npc_${Date.now()}`, name: 'Новый NPC', isNPC: true })]}) : null)}
+                  onClick={() => setRoom((prev: any) => prev ? ({...prev, npcs: [...prev.npcs, createNewCharacter({ id: `npc_${Date.now()}`, name: 'Новый NPC', isNPC: true })]}) : null)}
                   className="bg-[#28a745] hover:bg-[#218838] px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all shadow-md"
                 >
                   <PlusCircle size={20}/> Добавить NPC
                 </button>
               </div>
               <div className="flex flex-col gap-12">
-                {room.npcs.map((npc) => (
+                {room.npcs.map((npc: any) => (
                   <div key={npc.id} className="relative">
                      <div className="absolute top-4 right-4 z-10">
                         <button 
-                          onClick={() => setRoom(prev => prev ? ({...prev, npcs: prev.npcs.filter(n => n.id !== npc.id)}) : null)}
+                          onClick={() => setRoom((prev: any) => prev ? ({...prev, npcs: prev.npcs.filter((n: any) => n.id !== npc.id)}) : null)}
                           className="bg-red-500/20 text-red-400 p-2 rounded-lg hover:bg-red-500 hover:text-white transition-all"
                         >
                           <Trash2 size={20}/>
