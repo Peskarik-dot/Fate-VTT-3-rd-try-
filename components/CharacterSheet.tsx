@@ -13,7 +13,6 @@ interface Props {
 export const CharacterSheet: React.FC<Props> = ({ character, onChange, onRoll, isGMView }) => {
   const [modifier, setModifier] = useState(0);
 
-  // Helper to ensure we don't crash on legacy data
   const aspects = character.aspects || [];
   const stunts = character.stunts || [];
   const skills = character.skills || [];
@@ -96,7 +95,6 @@ export const CharacterSheet: React.FC<Props> = ({ character, onChange, onRoll, i
     updateField('consequences', newCons);
   };
 
-  // Logic for Skill Rows
   const handleSkillNameChange = (rowIndex: number, skillIndex: number, value: string) => {
     const newSkills = [...skills];
     const row = { ...newSkills[rowIndex] };

@@ -20,7 +20,6 @@
     #root {
       min-height: 100vh;
     }
-    /* Стили для экрана загрузки, пока компилируется TSX */
     .loading-container {
       height: 100vh;
       display: flex;
@@ -63,9 +62,9 @@
     </div>
   </div>
 
-  <!-- esm.sh/run сам найдет зависимости и скомпилирует .tsx -->
+  <!-- esm.sh/run автоматически скомпилирует ваши .tsx файлы -->
   <script type="module" src="https://esm.sh/run"></script>
-  <!-- Точка входа в приложение -->
+  <!-- Точка входа -->
   <script type="module" src="./index.tsx"></script>
 </body>
 </html>
